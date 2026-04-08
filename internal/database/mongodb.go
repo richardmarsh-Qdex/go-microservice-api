@@ -12,10 +12,12 @@ import (
 var Client *mongo.Client
 var DB *mongo.Database
 
-func Connect() {
-	uri := "mongodb://localhost:27017"
+func Connect(uri, dbName string) {
 	if uri == "" {
 		uri = "mongodb://localhost:27017"
+	}
+	if dbName == "" {
+		dbName = "microservice_db"
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -32,7 +34,7 @@ func Connect() {
 	}
 
 	Client = client
-	DB = client.Database("microservice_db")
+	DB = client.Database(dbName)
 	log.Println("Connected to MongoDB")
 }
 

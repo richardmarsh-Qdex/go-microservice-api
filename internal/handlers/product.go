@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gorilla/mux"
 	"go-microservice-api/internal/models"
 	"go-microservice-api/internal/database"
 	"go.mongodb.org/mongo-driver/bson"
@@ -30,7 +31,7 @@ func GetProducts(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetProduct(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get(":id")
+	id := mux.Vars(r)["id"]
 	objectID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -79,7 +80,7 @@ func CreateProduct(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateProduct(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get(":id")
+	id := mux.Vars(r)["id"]
 	objectID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -109,7 +110,7 @@ func UpdateProduct(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteProduct(w http.ResponseWriter, r *http.Request) {
-	id := r.URL.Query().Get(":id")
+	id := mux.Vars(r)["id"]
 	objectID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)

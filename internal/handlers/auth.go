@@ -5,15 +5,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
-	"go-microservice-api/internal/models"
+	"go-microservice-api/internal/auth"
 	"go-microservice-api/internal/database"
+	"go-microservice-api/internal/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"golang.org/x/crypto/bcrypt"
 )
-
-var jwtSecret = []byte("your-secret-key")
 
 func Register(w http.ResponseWriter, r *http.Request) {
 	var req models.UserRequest
@@ -22,7 +19,11 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	hashedPassword, err := auth.HashPassword(req.Password)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	user := models.User{
 		ID:        primitive.NewObjectID(),
@@ -35,13 +36,17 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	collection := database.DB.Collection("users")
-	_, err := collection.InsertOne(r.Context(), user)
+	_, err = collection.InsertOne(r.Context(), user)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	token := generateToken(user.ID.Hex(), user.Email, user.Role)
+	token, err := auth.IssueToken(user.ID.Hex(), user.Email, user.Role)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"token": token,
 		"user":  user,
@@ -63,27 +68,19 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
+	err = auth.ComparePassword([]byte(user.Password), req.Password)
 	if err != nil {
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
-	token := generateToken(user.ID.Hex(), user.Email, user.Role)
+	token, err := auth.IssueToken(user.ID.Hex(), user.Email, user.Role)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"token": token,
 		"user":  user,
 	})
-}
-
-func generateToken(userID, email, role string) string {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id": userID,
-		"email":   email,
-		"role":    role,
-		"exp":     time.Now().Add(time.Hour * 24).Unix(),
-	})
-
-	tokenString, _ := token.SignedString(jwtSecret)
-	return tokenString
 }

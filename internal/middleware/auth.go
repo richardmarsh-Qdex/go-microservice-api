@@ -5,7 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/golang-jwt/jwt/v5"
+	"go-microservice-api/internal/auth"
+	"go-microservice-api/internal/contextkeys"
 )
 
 func AuthMiddleware(next http.Handler) http.Handler {
@@ -17,24 +18,19 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return []byte("your-secret-key"), nil
-		})
-
-		if err != nil || !token.Valid {
+		claims, err := auth.ParseClaimsFromRequest(tokenString)
+		if err != nil {
 			http.Error(w, "Invalid token", http.StatusUnauthorized)
 			return
 		}
 
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			http.Error(w, "Invalid token claims", http.StatusUnauthorized)
-			return
-		}
+		uid, _ := claims["user_id"].(string)
+		email, _ := claims["email"].(string)
+		role, _ := claims["role"].(string)
 
-		ctx := context.WithValue(r.Context(), "user_id", claims["user_id"])
-		ctx = context.WithValue(ctx, "email", claims["email"])
-		ctx = context.WithValue(ctx, "role", claims["role"])
+		ctx := context.WithValue(r.Context(), contextkeys.UserID, uid)
+		ctx = context.WithValue(ctx, contextkeys.Email, email)
+		ctx = context.WithValue(ctx, contextkeys.Role, role)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
